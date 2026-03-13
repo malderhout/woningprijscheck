@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>WoningPrijsCheck — Is de vraagprijs reëel?</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e222c;
+    --border: #2a2f3d;
+    --accent: #c8a96e;
+    --accent2: #e8c98a;
+    --text: #f0ece4;
+    --text-muted: #7a8099;
+    --green: #4caf7d;
+    --red: #e05a5a;
+    --yellow: #e8b84b;
+    --radius: 12px;
+    --topbar-h: 60px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(200,169,110,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,169,110,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(13,15,20,0.88);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(200,169,110,0.1);
+    height: var(--topbar-h);
+    display: flex; align-items: center;
+    padding: 0 max(20px, env(safe-area-inset-left));
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none; user-select: none; -webkit-user-select: none;
+  }
+  .logo-icon { width: 34px; height: 34px; flex-shrink: 0; }
+  .logo-text { display: flex; flex-direction: column; line-height: 1.15; }
+  .logo-main {
+    font-family: 'Playfair Display', serif; font-weight: 700;
+    font-size: 16px; color: var(--text); letter-spacing: -0.3px;
+  }
+  .logo-main span { color: var(--accent); }
+  .logo-sub {
+    font-size: 9px; font-weight: 500; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+
+  /* ── LAYOUT ── */
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 860px; margin: 0 auto;
+    padding: calc(var(--topbar-h) + 36px) 16px max(80px, env(safe-area-inset-bottom));
+  }
+  @media (min-width: 600px) { .wrapper { padding-left: 24px; padding-right: 24px; } }
+
+  /* ── HERO ── */
+  header { text-align: center; margin-bottom: 40px; }
+
+  .logo-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(200,169,110,0.1); border: 1px solid rgba(200,169,110,0.25);
+    border-radius: 100px; padding: 6px 16px;
+    font-size: 11px; font-weight: 500; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 18px;
+  }
+  .logo-badge::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 8vw, 60px);
+    font-weight: 900; line-height: 1.05; letter-spacing: -1px; margin-bottom: 14px;
+  }
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    color: var(--text-muted); font-size: 15px;
+    max-width: 460px; margin: 0 auto; line-height: 1.7;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 24px 18px; margin-bottom: 20px;
+  }
+  @media (min-width: 600px) { .card { padding: 40px; } }
+
+  .section-title {
+    font-size: 10px; font-weight: 600; letter-spacing: 2.5px;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 18px; display: flex; align-items: center; gap: 12px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* Mobile-first grids */
+  .grid-2, .grid-3 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 440px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 480px) { .grid-3 { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 680px) { .grid-3 { grid-template-columns: 1fr 1fr 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 7px; }
+
+  label {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.5px;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+
+  input, select {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px; /* prevents iOS auto-zoom */
+    font-weight: 400; padding: 13px 15px;
+    transition: border-color 0.2s, background 0.2s;
+    width: 100%; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); background: #1a1f2a; }
+  input::placeholder { color: #3d4358; }
+  select option { background: #1e222c; }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a8099' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+    padding-right: 38px;
+  }
+
+  .input-unit { position: relative; }
+  .input-unit input { padding-right: 44px; }
+  .unit-label {
+    position: absolute; right: 14px; top: 50%;
+    transform: translateY(-50%); font-size: 13px;
+    color: var(--text-muted); pointer-events: none;
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+  /* Toggles in 2-col grid on wider screens */
+  .toggle-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 480px) { .toggle-grid { grid-template-columns: 1fr 1fr; } }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer;
+    transition: border-color 0.2s; user-select: none; -webkit-user-select: none;
+    min-height: 52px;
+  }
+  .toggle-row:active { border-color: var(--accent); }
+  @media (hover:hover) { .toggle-row:hover { border-color: var(--accent); } }
+  .toggle-row input[type=checkbox] { display: none; }
+  .toggle-label { font-size: 14px; font-weight: 400; color: var(--text); }
+
+  .toggle-switch {
+    width: 44px; height: 26px; background: var(--border);
+    border-radius: 100px; position: relative;
+    transition: background 0.2s; flex-shrink: 0; margin-left: 12px;
+  }
+  .toggle-switch::after {
+    content: ''; position: absolute;
+    width: 20px; height: 20px; background: white; border-radius: 50%;
+    top: 3px; left: 3px; transition: transform 0.2s;
+  }
+  .toggle-row input:checked + .toggle-switch { background: var(--accent); }
+  .toggle-row input:checked + .toggle-switch::after { transform: translateX(18px); }
+
+  .price-field input {
+    font-size: 20px; font-weight: 600; font-family: 'Playfair Display', serif;
+    padding: 16px 54px 16px 18px; border-color: rgba(200,169,110,0.3);
+  }
+  .price-field input:focus { border-color: var(--accent); }
+
+  .btn-analyse {
+    width: 100%; background: var(--accent); color: #0d0f14; border: none;
+    border-radius: var(--radius); font-family: 'DM Sans', sans-serif;
+    font-size: 16px; font-weight: 600; padding: 18px;
+    cursor: pointer; transition: background 0.2s, transform 0.1s;
+    margin-top: 24px; display: flex; align-items: center; justify-content: center;
+    gap: 10px; min-height: 56px;
+  }
+  .btn-analyse:hover { background: var(--accent2); }
+  .btn-analyse:active { transform: scale(0.98); }
+  .btn-analyse:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-icon { font-size: 18px; }
+
+  /* ── LOADING ── */
+  .loading-state { display: none; text-align: center; padding: 60px 20px; }
+  .loading-state.visible { display: block; }
+  .spinner {
+    width: 48px; height: 48px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.9s linear infinite; margin: 0 auto 24px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 8px; }
+  .loading-sub { color: var(--text-muted); font-size: 14px; }
+
+  /* ── RESULT ── */
+  .result-card {
+    display: none; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 24px 18px; animation: fadeUp 0.5s ease;
+  }
+  @media (min-width: 600px) { .result-card { padding: 40px; } }
+  .result-card.visible { display: block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+  .verdict-banner {
+    border-radius: 14px; padding: 18px; margin-bottom: 24px;
+    display: flex; align-items: flex-start; gap: 14px;
+  }
+  @media (min-width: 480px) { .verdict-banner { padding: 24px 28px; align-items: center; gap: 20px; } }
+  .verdict-banner.green { background: rgba(76,175,125,0.12); border: 1px solid rgba(76,175,125,0.3); }
+  .verdict-banner.red   { background: rgba(224,90,90,0.12);  border: 1px solid rgba(224,90,90,0.3); }
+  .verdict-banner.yellow{ background: rgba(232,184,75,0.12); border: 1px solid rgba(232,184,75,0.3); }
+
+  .verdict-icon { font-size: 34px; flex-shrink: 0; line-height: 1; }
+  @media (min-width: 480px) { .verdict-icon { font-size: 44px; } }
+
+  .verdict-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(17px, 5vw, 26px); font-weight: 700;
+    margin-bottom: 5px; line-height: 1.2;
+  }
+  .verdict-banner.green .verdict-title { color: var(--green); }
+  .verdict-banner.red   .verdict-title { color: var(--red); }
+  .verdict-banner.yellow .verdict-title { color: var(--yellow); }
+  .verdict-sub { color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+
+  .price-range-section { margin-bottom: 28px; }
+  .range-label {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text-muted); margin-bottom: 10px; font-weight: 500;
+  }
+  .range-track {
+    height: 8px; background: var(--surface2); border-radius: 100px;
+    position: relative; overflow: visible; margin-bottom: 14px;
+  }
+  .range-fill {
+    position: absolute; height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--accent));
+    border-radius: 100px; transition: width 1s ease;
+  }
+  .range-marker {
+    position: absolute; top: 50%; transform: translate(-50%,-50%);
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 3px solid var(--bg); transition: left 1s ease;
+    box-shadow: 0 0 12px rgba(0,0,0,0.5);
+  }
+  .range-prices {
+    display: flex; flex-direction: column; gap: 5px;
+    font-size: 12px; color: var(--text-muted);
+  }
+  @media (min-width: 480px) {
+    .range-prices { flex-direction: row; justify-content: space-between; }
+  }
+  .asked-price { font-weight: 600; font-size: 13px; }
+
+  .analysis-body {
+    font-size: 14px; line-height: 1.85; color: #c8c4bc;
+    margin-bottom: 20px; white-space: pre-wrap;
+  }
+
+  .factors { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
+  @media (min-width: 480px) { .factors { grid-template-columns: 1fr 1fr; } }
+
+  .factor { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 13px; }
+  .factor-name { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+  .factor-value { font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; }
+  .factor-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+  .green-dot  { background: var(--green); }
+  .red-dot    { background: var(--red); }
+  .yellow-dot { background: var(--yellow); }
+
+  .btn-reset {
+    background: transparent; border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    padding: 14px 24px; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    margin-top: 20px; width: 100%; min-height: 52px;
+  }
+  @media (min-width: 480px) { .btn-reset { width: auto; } }
+  .btn-reset:hover { border-color: var(--accent); color: var(--accent); }
+
+  .disclaimer {
+    text-align: center; color: var(--text-muted); font-size: 11px;
+    margin-top: 36px; line-height: 1.8; opacity: 0.55; padding: 0 8px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <button class="logo" onclick="goHome()" title="Naar startpagina" style="background:none;border:none;cursor:pointer;padding:0;">
+    <svg class="logo-icon" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 16L17 5L29 16V30H22V22H12V30H5V16Z" fill="rgba(200,169,110,0.15)" stroke="#c8a96e" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M17 5L29 16" stroke="#e8c98a" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+      <path d="M12.5 19.5L15.5 22.5L21.5 16" stroke="#c8a96e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="logo-text">
+      <span class="logo-main">Woning<span>Prijs</span>Check</span>
+      <span class="logo-sub">woningprijscheck.nl</span>
+    </div>
+  </button>
+</nav>
+
+<div class="wrapper">
+  <header>
+    <div class="logo-badge">AI Woninganalyse</div>
+    <h1>Is de vraagprijs<br><span>reëel?</span></h1>
+    <p class="subtitle">Vul de kenmerken in en onze AI beoordeelt direct of de vraagprijs marktconform is.</p>
+  </header>
+
+  <div class="card" id="formCard">
+
+    <div class="section-title">Vraagprijs</div>
+    <div class="field price-field">
+      <label>Vraagprijs</label>
+      <div class="input-unit">
+        <input type="number" id="prijs" inputmode="numeric" placeholder="395000" min="50000" max="5000000">
+        <span class="unit-label">€</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-title">Locatie</div>
+    <div class="grid-3">
+      <div class="field">
+        <label>Postcode</label>
+        <input type="text" id="postcode" inputmode="text" placeholder="1234 AB" maxlength="7" autocomplete="postal-code">
+      </div>
+      <div class="field">
+        <label>Stad / regio</label>
+        <input type="text" id="stad" placeholder="Amsterdam" autocomplete="address-level2">
+      </div>
+      <div class="field">
+        <label>Wijk / buurt</label>
+        <input type="text" id="wijk" placeholder="Jordaan, De Pijp…">
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="field">
+        <label>Straatnaam <span style="font-size:10px;color:var(--text-muted);text-transform:none;letter-spacing:0">(optioneel)</span></label>
+        <input type="text" id="straat" placeholder="bijv. Prinsengracht, Overtoom…" autocomplete="street-address">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-title">Kenmerken</div>
+    <div class="grid-3">
+      <div class="field">
+        <label>Woonoppervlak</label>
+        <div class="input-unit">
+          <input type="number" id="oppervlak" inputmode="numeric" placeholder="95" min="20" max="1000">
+          <span class="unit-label">m²</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Perceeloppervlak</label>
+        <div class="input-unit">
+          <input type="number" id="perceel" inputmode="numeric" placeholder="150" min="0" max="10000">
+          <span class="unit-label">m²</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Slaapkamers</label>
+        <input type="number" id="kamers" inputmode="numeric" placeholder="3" min="1" max="20">
+      </div>
+      <div class="field">
+        <label>Bouwjaar</label>
+        <input type="number" id="bouwjaar" inputmode="numeric" placeholder="1975" min="1850" max="2025">
+      </div>
+      <div class="field">
+        <label>Woningtype</label>
+        <select id="type">
+          <option value="">Selecteer type</option>
+          <option value="tussenwoning">Tussenwoning</option>
+          <option value="hoekwoning">Hoekwoning</option>
+          <option value="vrijstaand">Vrijstaand</option>
+          <option value="twee-onder-een-kap">2-onder-1-kap</option>
+          <option value="appartement">Appartement</option>
+          <option value="villa">Villa</option>
+          <option value="bungalow">Bungalow</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Energielabel</label>
+        <select id="energielabel">
+          <option value="">Onbekend</option>
+          <option value="A+++">A+++</option>
+          <option value="A++">A++</option>
+          <option value="A+">A+</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+          <option value="F">F</option>
+          <option value="G">G</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-title">Extra's</div>
+    <div class="toggle-grid">
+      <label class="toggle-row">
+        <span class="toggle-label">🌿 Tuin</span>
+        <input type="checkbox" id="tuin"><div class="toggle-switch"></div>
+      </label>
+      <label class="toggle-row">
+        <span class="toggle-label">🚗 Garage</span>
+        <input type="checkbox" id="garage"><div class="toggle-switch"></div>
+      </label>
+      <label class="toggle-row">
+        <span class="toggle-label">🅿️ Eigen parkeerplaats</span>
+        <input type="checkbox" id="parkeer"><div class="toggle-switch"></div>
+      </label>
+      <label class="toggle-row">
+        <span class="toggle-label">☀️ Zonnepanelen</span>
+        <input type="checkbox" id="zonnepanelen"><div class="toggle-switch"></div>
+      </label>
+      <label class="toggle-row">
+        <span class="toggle-label">⚡ Laadpaal</span>
+        <input type="checkbox" id="laadpaal"><div class="toggle-switch"></div>
+      </label>
+    </div>
+
+    <button class="btn-analyse" id="btnAnalyse" onclick="analyseWoning()">
+      <span class="btn-icon">🔍</span> Analyseer vraagprijs
+    </button>
+  </div>
+
+  <div class="loading-state" id="loadingState">
+    <div class="spinner"></div>
+    <p class="loading-text">Analyseren…</p>
+    <p class="loading-sub">We vergelijken met actuele marktdata</p>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="section-title">Analyse resultaat</div>
+
+    <div class="verdict-banner" id="verdictBanner">
+      <div class="verdict-icon" id="verdictIcon"></div>
+      <div>
+        <div class="verdict-title" id="verdictTitle"></div>
+        <div class="verdict-sub" id="verdictSub"></div>
+      </div>
+    </div>
+
+    <div class="price-range-section">
+      <div class="range-label"><span>Onderkant</span><span>Bovenkant</span></div>
+      <div class="range-track">
+        <div class="range-fill" id="rangeFill" style="width:0%"></div>
+        <div class="range-marker" id="rangeMarker" style="left:50%;background:var(--accent)"></div>
+      </div>
+      <div class="range-prices">
+        <span id="priceMin">—</span>
+        <span class="asked-price" id="priceAsked">Vraagprijs: —</span>
+        <span id="priceMax">—</span>
+      </div>
+    </div>
+
+    <div class="analysis-body" id="analysisBody"></div>
+
+    <div class="section-title" style="margin-top:24px">Factoren</div>
+    <div class="factors" id="factorsList"></div>
+
+    <button class="btn-reset" onclick="resetForm()">← Nieuwe analyse</button>
+  </div>
+
+  <p class="disclaimer">WoningPrijsCheck.nl gebruikt AI voor een indicatieve prijsbeoordeling.<br>Geen officieel taxatierapport — raadpleeg altijd een erkend taxateur.</p>
+</div>
+
+<script>
+function goHome(e) {
+  e.preventDefault();
+  resetForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function repairJson(str) {
+  let inString = false, escape = false, braces = 0, brackets = 0, lastValidIdx = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\' && inString) { escape = true; continue; }
+    if (c === '"') { inString = !inString; if (!inString) lastValidIdx = i; continue; }
+    if (inString) continue;
+    if (c === '{') braces++;
+    else if (c === '}') { braces--; lastValidIdx = i; }
+    else if (c === '[') brackets++;
+    else if (c === ']') { brackets--; lastValidIdx = i; }
+    else if (!' \n\r\t:,'.includes(c)) lastValidIdx = i;
+  }
+  if (inString) str = str.substring(0, lastValidIdx + 1) + '"';
+  str = str.trimEnd().replace(/,\s*$/, '');
+  while (brackets > 0) { str += ']'; brackets--; }
+  while (braces > 0)   { str += '}'; braces--; }
+  return str;
+}
+
+function formatEuro(n) {
+  return '€\u202f' + Math.round(n).toLocaleString('nl-NL');
+}
+
+async function analyseWoning() {
+  const v = id => document.getElementById(id).value;
+  const c = id => document.getElementById(id).checked;
+
+  const prijs = v('prijs'), stad = v('stad'), oppervlak = v('oppervlak');
+  if (!prijs || !oppervlak || !stad) {
+    alert('Vul minimaal de vraagprijs, woonoppervlak en stad in.');
+    return;
+  }
+
+  const locatieStr = [v('straat'), v('wijk'), stad, v('postcode')].filter(Boolean).join(', ');
+  const vraagprijs = Number(prijs);
+
+  document.getElementById('formCard').style.display = 'none';
+  document.getElementById('loadingState').classList.add('visible');
+  document.getElementById('resultCard').classList.remove('visible');
+
+  const prompt = `Je bent een kritische Nederlandse woningmarktexpert. Schat de MARKTWAARDE en vergelijk met de vraagprijs.
+
+KENMERKEN:
+- Vraagprijs: €${vraagprijs.toLocaleString('nl-NL')}
+- Locatie: ${locatieStr}${v('wijk') ? `\n- Wijk: ${v('wijk')}` : ''}${v('straat') ? `\n- Straat: ${v('straat')}` : ''}
+- Type: ${v('type')||'onbekend'} | Woonoppervlak: ${oppervlak} m²${v('perceel') ? ` | Perceel: ${v('perceel')} m²` : ''}
+- Slaapkamers: ${v('kamers')||'onbekend'} | Bouwjaar: ${v('bouwjaar')||'onbekend'} | Energielabel: ${v('energielabel')||'onbekend'}
+- Tuin:${c('tuin')?'ja':'nee'} Garage:${c('garage')?'ja':'nee'} Parkeer:${c('parkeer')?'ja':'nee'} Zonnepanelen:${c('zonnepanelen')?'ja':'nee'} Laadpaal:${c('laadpaal')?'ja':'nee'}
+
+Verdict (STRIKT): <-10%=koopje | -10%..+5%=reeel | +5%..+15%=aan_de_hoge_kant | >+15%=te_hoog
+
+Antwoord ALLEEN JSON:
+{"marktwaarde":<getal>,"schattingMin":<getal>,"schattingMax":<getal>,"afwijkingPct":<getal>,"verdict":"reeel"|"aan_de_hoge_kant"|"te_hoog"|"koopje","verdictTekst":"max 8 woorden","verdictSub":"marktwaarde + verschil in euros","analyse":"2 alineas max 220 woorden NL","factoren":[{"naam":"Prijs per m²","waarde":"gevraagd vs markt","oordeel":"goed"|"matig"|"slecht"},{"naam":"Locatie & wijk","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Bouwjaar & staat","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Energielabel","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Extra's","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Afwijking","waarde":"euro + %","oordeel":"goed"|"matig"|"slecht"}]}`;
+
+  try {
+    const res  = await fetch("/api/messages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role:"user", content: prompt }] })
+    });
+    const data = await res.json();
+    const text = data.content.map(i => i.text||'').join('');
+    const match = text.replace(/```json|```/g,'').trim().match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Geen JSON');
+    renderResult(JSON.parse(repairJson(match[0])), vraagprijs);
+  } catch(err) {
+    console.error(err);
+    document.getElementById('formCard').style.display = 'block';
+    document.getElementById('loadingState').classList.remove('visible');
+    alert('Er ging iets mis. Probeer het opnieuw.');
+  }
+}
+
+function renderResult(r, prijs) {
+  document.getElementById('loadingState').classList.remove('visible');
+
+  const colorMap = {reeel:'green', aan_de_hoge_kant:'yellow', te_hoog:'red', koopje:'green'};
+  const iconMap  = {reeel:'✅', aan_de_hoge_kant:'⚠️', te_hoog:'🚨', koopje:'🎯'};
+  document.getElementById('verdictBanner').className = 'verdict-banner ' + (colorMap[r.verdict]||'yellow');
+  document.getElementById('verdictIcon').textContent  = iconMap[r.verdict]||'🏠';
+  document.getElementById('verdictTitle').textContent = r.verdictTekst;
+  document.getElementById('verdictSub').textContent   = r.verdictSub;
+
+  const mw  = r.marktwaarde || ((r.schattingMin + r.schattingMax) / 2);
+  const pad = (Math.max(r.schattingMax, prijs, mw) - Math.min(r.schattingMin, prijs, mw)) * 0.1 || 20000;
+  const min = Math.min(r.schattingMin, prijs, mw) - pad;
+  const max = Math.max(r.schattingMax, prijs, mw) + pad;
+  const rng = max - min;
+  const pV  = ((prijs - min) / rng) * 100;
+  const pM  = ((mw    - min) / rng) * 100;
+  const mc  = {reeel:'var(--green)', aan_de_hoge_kant:'var(--yellow)', te_hoog:'var(--red)', koopje:'var(--green)'}[r.verdict]||'var(--accent)';
+
+  setTimeout(() => {
+    document.getElementById('rangeFill').style.width  = Math.min(100,Math.max(0,pM)) + '%';
+    document.getElementById('rangeMarker').style.left = Math.min(100,Math.max(0,pV)) + '%';
+    document.getElementById('rangeMarker').style.background = mc;
+    let mm = document.getElementById('marktMarker');
+    if (!mm) {
+      mm = document.createElement('div'); mm.id = 'marktMarker';
+      mm.style.cssText = 'position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:var(--text-muted);border:2px solid var(--bg);transition:left 1s ease;';
+      document.querySelector('.range-track').appendChild(mm);
+    }
+    mm.style.left = Math.min(100,Math.max(0,pM)) + '%';
+  }, 100);
+
+  const afw    = prijs - mw;
+  const afwStr = (afw>=0?'+':'') + formatEuro(afw);
+  const afwPct = r.afwijkingPct != null ? r.afwijkingPct : ((afw/mw)*100).toFixed(1);
+
+  document.getElementById('priceMin').textContent = formatEuro(r.schattingMin);
+  document.getElementById('priceMax').textContent = formatEuro(r.schattingMax);
+  document.getElementById('priceAsked').innerHTML =
+    `<span style="color:${mc};font-weight:600">Vraagprijs: ${formatEuro(prijs)}</span> ` +
+    `<span style="color:var(--text-muted);font-size:11px">${afwStr} (${afwPct}%)</span>` +
+    `<br><span style="color:var(--text-muted);font-size:11px">⬤ Marktwaarde: ${formatEuro(mw)}</span>`;
+
+  document.getElementById('analysisBody').textContent = r.analyse;
+
+  const fl = document.getElementById('factorsList');
+  fl.innerHTML = '';
+  (r.factoren||[]).forEach(f => {
+    const dc = {goed:'green-dot', matig:'yellow-dot', slecht:'red-dot'}[f.oordeel]||'yellow-dot';
+    fl.innerHTML += `<div class="factor"><div class="factor-name">${f.naam}</div><div class="factor-value"><div class="factor-dot ${dc}"></div>${f.waarde}</div></div>`;
+  });
+
+  document.getElementById('resultCard').classList.add('visible');
+  setTimeout(() => document.getElementById('resultCard').scrollIntoView({ behavior:'smooth', block:'start' }), 150);
+}
+
+function resetForm() {
+  document.getElementById('formCard').style.display = 'block';
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('loadingState').classList.remove('visible');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goHome() {
+  // Reset all form fields
+  ['prijs','postcode','stad','wijk','straat','oppervlak','perceel','kamers','bouwjaar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['type','energielabel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  ['tuin','garage','parkeer','zonnepanelen','laadpaal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+  // Remove marktwaarde marker if present
+  const mm = document.getElementById('marktMarker');
+  if (mm) mm.remove();
+  resetForm();
+}
+</script>
+</body>
+</html>
