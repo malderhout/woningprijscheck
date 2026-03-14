@@ -568,20 +568,34 @@ Antwoord ALLEEN JSON:
 {"marktwaarde":<getal>,"schattingMin":<getal>,"schattingMax":<getal>,"afwijkingPct":<getal>,"verdict":"reeel"|"aan_de_hoge_kant"|"te_hoog"|"koopje","verdictTekst":"max 8 woorden","verdictSub":"marktwaarde + verschil in euros","analyse":"2 alineas max 220 woorden NL","factoren":[{"naam":"Prijs per m²","waarde":"gevraagd vs markt","oordeel":"goed"|"matig"|"slecht"},{"naam":"Locatie & wijk","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Bouwjaar & staat","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Energielabel","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Extra's","waarde":"kort","oordeel":"goed"|"matig"|"slecht"},{"naam":"Afwijking","waarde":"euro + %","oordeel":"goed"|"matig"|"slecht"}]}`;
 
   try {
-    const res  = await fetch("/api/messages", {
+    const apiRes = await fetch("/api/messages", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role:"user", content: prompt }] })
+      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 2000, messages: [{ role:"user", content: prompt }] })
     });
-    const data = await res.json();
+
+    const data = await apiRes.json();
+
+    // Toon API fout duidelijk in console én aan gebruiker
+    if (!apiRes.ok) {
+      const errMsg = data?.error?.message || JSON.stringify(data);
+      console.error('API fout ' + apiRes.status + ':', errMsg);
+      throw new Error('API ' + apiRes.status + ': ' + errMsg);
+    }
+
+    if (!data.content || !Array.isArray(data.content)) {
+      console.error('Onverwacht API response:', JSON.stringify(data));
+      throw new Error('Onverwacht response formaat');
+    }
+
     const text = data.content.map(i => i.text||'').join('');
     const match = text.replace(/```json|```/g,'').trim().match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Geen JSON');
+    if (!match) throw new Error('Geen JSON in response');
     renderResult(JSON.parse(repairJson(match[0])), vraagprijs);
   } catch(err) {
-    console.error(err);
+    console.error('Analyse fout:', err.message);
     document.getElementById('formCard').style.display = 'block';
     document.getElementById('loadingState').classList.remove('visible');
-    alert('Er ging iets mis. Probeer het opnieuw.');
+    alert('Fout: ' + err.message);
   }
 }
 
